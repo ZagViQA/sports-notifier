@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
         // 2. Map Tournaments users are subscribed to
         const activeFootballLeagueIds = new Set();
-        const prefersF1 = subscriptions.some(s => s.tournaments.includes('1') && s.sports.includes('f1'));
+        const prefersF1 = subscriptions.some(s => (s.tournaments.includes('1') || s.tournaments.includes('f1_gran_prix')) && s.sports.includes('f1'));
 
         subscriptions.forEach(sub => {
             if (sub.sports.includes('football')) {
@@ -116,14 +116,14 @@ export default async function handler(req, res) {
                     const races = f1Response.data.response;
                     if (races.length > 0) {
                         // For demonstration purposes so the user actually receives a notification RIGHT NOW,
-                        // we take the first race and pretend it starts in 5 minutes.
+                        // User preferences in DB are '1d' and '1w'. So we set it to start exactly 24 hours from now.
                         const demoRace = races[0];
-                        const fakeStartTime = new Date(now.getTime() + 5 * 60 * 1000); // starts in 5 mins
+                        const fakeStartTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // starts in 1 day
 
                         liveEvents.push({
                             id: `f1_demo_${demoRace.id}`,
                             sport_id: 'f1',
-                            tournament_id: '1',
+                            tournament_id: 'f1_gran_prix',
                             title: `🏎 ${demoRace.competition.name} (Тестовый матч)`,
                             start_time: fakeStartTime
                         });
