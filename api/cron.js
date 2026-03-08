@@ -106,28 +106,28 @@ export default async function handler(req, res) {
         // 4. Fetch FORMULA 1 Data from API-Sports
         if (prefersF1) {
             try {
-                // Since we are testing and the API might not have 2026 data yet, we use 2024
+                // Get current year
+                const currentYear = now.getFullYear();
                 const f1Response = await axios.get('https://v1.formula-1.api-sports.io/races', {
                     headers: f1ApiHeaders,
-                    params: { season: 2024, type: 'race', timezone: 'Europe/Moscow' }
+                    params: { season: currentYear, type: 'race', timezone: 'Europe/Moscow' }
                 });
 
                 if (f1Response.data && f1Response.data.response) {
                     const races = f1Response.data.response;
-                    if (races.length > 0) {
-                        // For demonstration purposes so the user actually receives a notification RIGHT NOW,
-                        // User preferences in DB are '1d' and '1w'. So we set it to start exactly 24 hours from now.
-                        const demoRace = races[0];
-                        const fakeStartTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // starts in 1 day
-
-                        liveEvents.push({
-                            id: `f1_demo_${demoRace.id}`,
-                            sport_id: 'f1',
-                            tournament_id: 'f1_gran_prix',
-                            title: `🏎 ${demoRace.competition.name} (Тестовый матч)`,
-                            start_time: fakeStartTime
-                        });
-                    }
+                    races.forEach(race => {
+                        // Include races that are happening in the future
+                        const raceTime = new Date(race.date);
+                        if (raceTime > now) {
+                            liveEvents.push({
+                                id: `f1_${race.id}`,
+                                sport_id: 'f1',
+                                tournament_id: '1', // We mapped 'f1_gran_prix' to '1' in mock.js
+                                title: `🏎 ${race.competition.name}`,
+                                start_time: raceTime
+                            });
+                        }
+                    });
                 }
             } catch (f1Err) {
                 console.error("F1 API Error:", f1Err?.response?.data || f1Err.message);
