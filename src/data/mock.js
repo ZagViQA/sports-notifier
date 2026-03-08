@@ -10,10 +10,10 @@ export const sportsData = [
 
 export const tournamentsData = {
     football: [
-        { id: 'world_cup_fb', name: 'Чемпионат Мира по футболу' },
-        { id: 'champions_league', name: 'Лига Чемпионов УЕФА' },
-        { id: 'euro', name: 'Чемпионат Европы' },
-        { id: 'epl', name: 'Английская Премьер-лига' }
+        { id: '1', name: 'Чемпионат Мира по футболу' }, // API-Sports World Cup ID is 1
+        { id: '2', name: 'Лига Чемпионов УЕФА' },       // API-Sports UCL ID is 2
+        { id: '4', name: 'Чемпионат Европы' },          // API-Sports Euro ID is 4
+        { id: '39', name: 'Английская Премьер-лига' }   // API-Sports Premier League ID is 39
     ],
     tennis: [
         { id: 'grand_slam', name: 'Турниры Большого Шлема' },
@@ -43,8 +43,7 @@ export const tournamentsData = {
         { id: 'worlds_lol', name: 'World Championship (LoL)' }
     ],
     f1: [
-        { id: 'f1_gran_prix', name: 'Гран-при Формулы 1' },
-        { id: 'f1_sprint', name: 'Спринтерские гонки (F1 Sprint)' }
+        { id: '1', name: 'Гран-при Формулы 1' } // Formula 1 API uses race series ID (usually 1 for main Formula 1)
     ]
 };
 
