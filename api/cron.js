@@ -6,6 +6,7 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const apiKey = process.env.API_SPORTS_KEY;
+const theOddsApiKey = process.env.THE_ODDS_API_KEY;
 
 const f1ApiHeaders = {
     'x-apisports-key': apiKey,
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
         // 2. Map Tournaments users are subscribed to
         const activeFootballLeagueIds = new Set();
         const activeVolleyballLeagueIds = new Set();
+        const activeTennisLeagueIds = new Set();
         const prefersF1 = subscriptions.some(s => (s.tournaments.includes('1') || s.tournaments.includes('f1_gran_prix')) && s.sports.includes('f1'));
 
         subscriptions.forEach(sub => {
@@ -69,6 +71,9 @@ export default async function handler(req, res) {
             }
             if (sub.sports.includes('volleyball')) {
                 sub.tournaments.forEach(id => activeVolleyballLeagueIds.add(id));
+            }
+            if (sub.sports.includes('tennis')) {
+                sub.tournaments.forEach(id => activeTennisLeagueIds.add(id));
             }
         });
 
@@ -180,7 +185,41 @@ export default async function handler(req, res) {
             }
         }
 
-        // 6. Matches formatting & notifications (Common Logic)
+        // 6. Fetch TENNIS Data from The Odds API
+        if (activeTennisLeagueIds.size > 0 || subscriptions.some(s => s.sports.includes('tennis'))) {
+            try {
+                // Determine which leagues to fetch based on active subs, or fallback to default
+                const leaguesToFetch = activeTennisLeagueIds.size > 0 ? Array.from(activeTennisLeagueIds) : ['tennis_atp_wimbledon', 'tennis_atp_indian_wells'];
+
+                for (const league of leaguesToFetch) {
+                    // Safety check: skipping generic old IDs if any remain
+                    if (!league.startsWith('tennis_')) continue;
+
+                    const response = await axios.get(`https://api.the-odds-api.com/v4/sports/${league}/events`, {
+                        params: { apiKey: theOddsApiKey }
+                    });
+
+                    if (Array.isArray(response.data)) {
+                        response.data.forEach(match => {
+                            const matchTime = new Date(match.commence_time);
+                            if (matchTime > now) {
+                                liveEvents.push({
+                                    id: `tn_${match.id}`,
+                                    sport_id: 'tennis',
+                                    tournament_id: league, // this maps exactly to ID
+                                    title: `🎾 ${match.home_team} vs ${match.away_team}`,
+                                    start_time: matchTime
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (tnErr) {
+                console.error("Tennis API Error:", tnErr?.response?.data || tnErr.message);
+            }
+        }
+
+        // 7. Matches formatting & notifications (Common Logic)
         let sentCount = 0;
 
         for (const event of liveEvents) {

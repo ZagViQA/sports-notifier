@@ -16,10 +16,10 @@ export const tournamentsData = {
         { id: '39', name: 'Английская Премьер-лига' }   // API-Sports Premier League ID is 39
     ],
     tennis: [
-        { id: 'grand_slam', name: 'Турниры Большого Шлема' },
-        { id: 'atp_1000', name: 'ATP Masters 1000' },
-        { id: 'atp_500', name: 'ATP 500' },
-        { id: 'atp_250', name: 'ATP 250' }
+        { id: 'tennis_atp_wimbledon', name: 'Уимблдон (ATP)' },
+        { id: 'tennis_atp_indian_wells', name: 'Indian Wells (ATP 1000)' },
+        { id: 'tennis_wta_indian_wells', name: 'Indian Wells (WTA 1000)' },
+        { id: 'tennis_atp_us_open', name: 'US Open (ATP)' }
     ],
     volleyball: [
         { id: '137', name: 'Чемпионат Мира по волейболу' }, // Real or placeholder numeric ID
