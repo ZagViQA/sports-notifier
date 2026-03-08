@@ -22,10 +22,10 @@ export const tournamentsData = {
         { id: 'atp_250', name: 'ATP 250' }
     ],
     volleyball: [
-        { id: 'world_cup_vb', name: 'Чемпионат Мира по волейболу' },
-        { id: 'nations_league', name: 'Лига Наций' },
-        { id: 'champions_league_vb', name: 'Лига Чемпионов (Волейбол)' },
-        { id: 'beach_pro_tour', name: 'Beach Pro Tour (Пляжный)' }
+        { id: '137', name: 'Чемпионат Мира по волейболу' }, // Real or placeholder numeric ID
+        { id: '133', name: 'Лига Наций' },
+        { id: '134', name: 'Лига Чемпионов (Волейбол)' },
+        { id: '144', name: 'Beach Pro Tour (Пляжный)' }
     ],
     basketball: [
         { id: 'nba', name: 'NBA' },

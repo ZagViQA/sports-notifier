@@ -12,6 +12,11 @@ const f1ApiHeaders = {
     'x-rapidapi-host': 'v1.formula-1.api-sports.io'
 };
 
+const vbApiHeaders = {
+    'x-apisports-key': apiKey,
+    'x-rapidapi-host': 'v1.volleyball.api-sports.io'
+};
+
 const apiHeaders = {
     'x-apisports-key': apiKey,
     'x-rapidapi-host': 'v3.football.api-sports.io'
@@ -55,11 +60,15 @@ export default async function handler(req, res) {
 
         // 2. Map Tournaments users are subscribed to
         const activeFootballLeagueIds = new Set();
+        const activeVolleyballLeagueIds = new Set();
         const prefersF1 = subscriptions.some(s => (s.tournaments.includes('1') || s.tournaments.includes('f1_gran_prix')) && s.sports.includes('f1'));
 
         subscriptions.forEach(sub => {
             if (sub.sports.includes('football')) {
                 sub.tournaments.forEach(id => activeFootballLeagueIds.add(id));
+            }
+            if (sub.sports.includes('volleyball')) {
+                sub.tournaments.forEach(id => activeVolleyballLeagueIds.add(id));
             }
         });
 
@@ -134,7 +143,44 @@ export default async function handler(req, res) {
             }
         }
 
-        // 5. Matches formatting & notifications (Common Logic)
+        // 5. Fetch VOLLEYBALL Data from API-Sports
+        if (activeVolleyballLeagueIds.size > 0 || subscriptions.some(s => s.sports.includes('volleyball'))) {
+            try {
+                const datesToFetch = [toDateString(now), toDateString(tomorrow), toDateString(nextWeek)];
+
+                for (const date of datesToFetch) {
+                    const response = await axios.get('https://v1.volleyball.api-sports.io/games', {
+                        headers: vbApiHeaders,
+                        params: { date: date, timezone: 'Europe/Moscow' }
+                    });
+
+                    if (response.data && response.data.response) {
+                        const games = response.data.response;
+                        games.forEach(game => {
+                            const gameTime = new Date(game.date);
+                            if (gameTime > now) {
+                                // Default mapping to the first subbed tournament for old users
+                                const tId = activeVolleyballLeagueIds.has(game.league.id.toString())
+                                    ? game.league.id.toString()
+                                    : Array.from(activeVolleyballLeagueIds)[0] || '137';
+
+                                liveEvents.push({
+                                    id: `vb_${game.id}`,
+                                    sport_id: 'volleyball',
+                                    tournament_id: tId,
+                                    title: `🏐 ${game.teams.home.name} vs ${game.teams.away.name}`,
+                                    start_time: gameTime
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (vbErr) {
+                console.error("Volleyball API Error:", vbErr?.response?.data || vbErr.message);
+            }
+        }
+
+        // 6. Matches formatting & notifications (Common Logic)
         let sentCount = 0;
 
         for (const event of liveEvents) {
