@@ -1,21 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import TelegramBot from 'node-telegram-bot-api';
+import axios from 'axios';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const token = process.env.TELEGRAM_BOT_TOKEN;
+const apiKey = process.env.API_SPORTS_KEY;
 
-// --- MOCK API DATA ---
-const getMockEvents = () => {
-    const now = new Date();
-    const addTime = (hours) => new Date(now.getTime() + hours * 60 * 60 * 1000);
-
-    return [
-        { id: 1, sport_id: 'tennis', tournament_id: 'atp_250', title: 'Финал: Медведев - Зверев', start_time: addTime(0.5) },
-        { id: 2, sport_id: 'football', tournament_id: 'world_cup_fb', title: 'Бразилия - Аргентина', start_time: addTime(1.5) },
-        { id: 3, sport_id: 'volleyball', tournament_id: 'nations_league', title: 'Россия - Польша', start_time: addTime(25) },
-        { id: 4, sport_id: 'f1', tournament_id: 'f1_gran_prix', title: 'Гран-при Монако: Гонка', start_time: addTime(24 * 7 + 2) }
-    ];
+const apiHeaders = {
+    'x-apisports-key': apiKey,
+    'x-rapidapi-host': 'v3.football.api-sports.io'
 };
 
 const formatDate = (date) => {
@@ -30,7 +24,6 @@ const formatDate = (date) => {
 export default async function handler(req, res) {
     console.log(`[${new Date().toISOString()}] Running Vercel notification cron...`);
 
-    // Verify Vercel Cron Secret in production to prevent unauthorized runs
     if (process.env.CRON_SECRET && req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
         return res.status(401).end('Unauthorized');
     }
@@ -38,29 +31,81 @@ export default async function handler(req, res) {
     try {
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
         const bot = new TelegramBot(token);
-        const events = getMockEvents();
         const now = new Date();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+        // Convert dates to YYYY-MM-DD
+        const toDateString = (d) => d.toISOString().split('T')[0];
+
+        // 1. Fetch Subscriptions
         const { data: subscriptions, error: subError } = await supabase
             .from('subscriptions')
-            .select(`
-                *,
-                user:users(telegram_chat_id)
-            `);
+            .select(`*, user:users(telegram_chat_id)`);
 
         if (subError) throw subError;
         if (!subscriptions || subscriptions.length === 0) {
             return res.status(200).json({ message: 'No subscriptions found' });
         }
 
+        // 2. Map Tournaments users are subscribed to
+        const activeFootballLeagueIds = new Set();
+        const prefersF1 = subscriptions.some(s => s.tournaments.includes('1') && s.sports.includes('f1'));
+
+        subscriptions.forEach(sub => {
+            if (sub.sports.includes('football')) {
+                sub.tournaments.forEach(id => activeFootballLeagueIds.add(id));
+            }
+        });
+
+        const liveEvents = [];
+
+        // 3. Fetch FOOTBALL Data from API-Sports
+        // Only fetch events for the next 7 days to cover the "1w" preference
+        if (activeFootballLeagueIds.size > 0) {
+            try {
+                // Free tier limits to fetching by date.
+                // Because of constraints, in a real app we'd fetch specific leagues,
+                // but the easiest approach is to get fixtures for specific dates and filter.
+                // We'll fetch today, tomorrow, and a week from now.
+
+                const datesToFetch = [toDateString(now), toDateString(tomorrow), toDateString(nextWeek)];
+
+                for (const date of datesToFetch) {
+                    const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
+                        headers: apiHeaders,
+                        params: { date: date, timezone: 'Europe/Moscow' }
+                    });
+
+                    if (response.data && response.data.response) {
+                        const fixtures = response.data.response;
+                        fixtures.forEach(fixture => {
+                            // Check if it's one of our leagues
+                            if (activeFootballLeagueIds.has(fixture.league.id.toString())) {
+                                liveEvents.push({
+                                    id: `fb_${fixture.fixture.id}`,
+                                    sport_id: 'football',
+                                    tournament_id: fixture.league.id.toString(),
+                                    title: `${fixture.teams.home.name} vs ${fixture.teams.away.name}`,
+                                    start_time: new Date(fixture.fixture.date)
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (fbErr) {
+                console.error("Football API Error:", fbErr?.response?.data || fbErr.message);
+            }
+        }
+
+        // 4. Matches formatting & notifications (Common Logic)
         let sentCount = 0;
 
-        for (const event of events) {
+        for (const event of liveEvents) {
             const timeDiffMs = event.start_time.getTime() - now.getTime();
             const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
 
-            // Allow slightly larger margins since Vercel free tier crons run less precisely
-            const margin = 0.5; // Half an hour margin for Vercel Crons
+            const margin = 0.5; // Half an hour margin
             const isMatchStart = Math.abs(timeDiffHours) < margin;
             const isMatch1h = Math.abs(timeDiffHours - 1) < margin;
             const isMatch1d = Math.abs(timeDiffHours - 24) < margin;
@@ -69,7 +114,7 @@ export default async function handler(req, res) {
             let currentTriggeredPref = null;
             let triggerText = "";
 
-            if (isMatchStart) { currentTriggeredPref = 'start'; triggerText = 'Матч начался!'; }
+            if (isMatchStart) { currentTriggeredPref = 'start'; triggerText = 'Матч скоро начнется!'; }
             else if (isMatch1h) { currentTriggeredPref = '1h'; triggerText = 'Матч начнется в ближайший час'; }
             else if (isMatch1d) { currentTriggeredPref = '1d'; triggerText = 'Матч начнется завтра'; }
             else if (isMatch1w) { currentTriggeredPref = '1w'; triggerText = 'Матч начнется через неделю'; }
@@ -103,7 +148,11 @@ export default async function handler(req, res) {
             }
         }
 
-        return res.status(200).json({ ok: true, sentNotifications: sentCount });
+        return res.status(200).json({
+            ok: true,
+            eventsFound: liveEvents.length,
+            sentNotifications: sentCount
+        });
 
     } catch (err) {
         console.error("Cron Error:", err);
