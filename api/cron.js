@@ -7,6 +7,11 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const apiKey = process.env.API_SPORTS_KEY;
 
+const f1ApiHeaders = {
+    'x-apisports-key': apiKey,
+    'x-rapidapi-host': 'v1.formula-1.api-sports.io'
+};
+
 const apiHeaders = {
     'x-apisports-key': apiKey,
     'x-rapidapi-host': 'v3.football.api-sports.io'
@@ -98,7 +103,38 @@ export default async function handler(req, res) {
             }
         }
 
-        // 4. Matches formatting & notifications (Common Logic)
+        // 4. Fetch FORMULA 1 Data from API-Sports
+        if (prefersF1) {
+            try {
+                // Get current year
+                const currentYear = now.getFullYear();
+                const f1Response = await axios.get('https://v1.formula-1.api-sports.io/races', {
+                    headers: f1ApiHeaders,
+                    params: { season: currentYear, type: 'race', timezone: 'Europe/Moscow' }
+                });
+
+                if (f1Response.data && f1Response.data.response) {
+                    const races = f1Response.data.response;
+                    races.forEach(race => {
+                        // Include races that are happening in the future
+                        const raceTime = new Date(race.date);
+                        if (raceTime > now) {
+                            liveEvents.push({
+                                id: `f1_${race.id}`,
+                                sport_id: 'f1',
+                                tournament_id: '1', // We mapped 'f1_gran_prix' to '1' in mock.js
+                                title: `🏎 ${race.competition.name}`,
+                                start_time: raceTime
+                            });
+                        }
+                    });
+                }
+            } catch (f1Err) {
+                console.error("F1 API Error:", f1Err?.response?.data || f1Err.message);
+            }
+        }
+
+        // 5. Matches formatting & notifications (Common Logic)
         let sentCount = 0;
 
         for (const event of liveEvents) {
