@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Setup Supabase and Bot Client inside the handler so it initializes on each serverless invocation
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 // Initialize telegram bot without polling since we use webhooks on Vercel
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
                 // Scenario A: Deep linking connection (/start <UUID>)
                 if (parts.length > 1) {
                     const userUuid = parts[1];
-                    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+                    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
                     console.log(`Connection request: Chat ${chatId} -> User ${userUuid}`);
 
