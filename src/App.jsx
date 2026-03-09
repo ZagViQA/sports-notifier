@@ -3,6 +3,7 @@ import WizardForm from './pages/WizardForm';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import { UserCircle } from 'lucide-react';
+import ErrorBoundary from './ErrorBoundary';
 
 function App() {
     return (
@@ -49,11 +50,13 @@ function App() {
             </nav>
 
             <div style={{ paddingTop: '80px', display: 'flex', justifyContent: 'center', width: '100%' }}>
-                <Routes>
-                    <Route path="/" element={<WizardForm />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                </Routes>
+                <ErrorBoundary>
+                    <Routes>
+                        <Route path="/" element={<WizardForm />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/dashboard" element={<Dashboard />} />
+                    </Routes>
+                </ErrorBoundary>
             </div>
         </Router>
     );

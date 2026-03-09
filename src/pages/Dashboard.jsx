@@ -8,6 +8,8 @@ function Dashboard() {
     const [user, setUser] = useState(null);
     const [subscriptions, setSubscriptions] = useState([]);
     const [telegramChatId, setTelegramChatId] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Check active session on mount
