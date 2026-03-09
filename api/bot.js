@@ -42,23 +42,47 @@ export default async function handler(req, res) {
                         .single();
 
                     if (fetchError || !user) {
-                        await bot.sendMessage(chatId, "⚠️ Ошибка связи с веб-приложением. Вернитесь на сайт и попробуйте снова.");
+                        await bot.sendMessage(chatId, "⚠️ Ошибка связи с веб-приложением. Вернитесь на Кабинет и попробуйте нажать кнопку привязки снова.");
                     } else {
+                        // Check if this chat ID is already linked to another (old/anonymous) account
+                        const { data: oldUser } = await supabase
+                            .from('users')
+                            .select('id')
+                            .eq('telegram_chat_id', chatId)
+                            .single();
+
+                        if (oldUser && oldUser.id !== userUuid) {
+                            console.log(`Transferring subscriptions from ${oldUser.id} to ${userUuid}`);
+
+                            // Transfer all old subscriptions to this new user ID
+                            await supabase
+                                .from('subscriptions')
+                                .update({ user_id: userUuid })
+                                .eq('user_id', oldUser.id);
+
+                            // Delete the old anonymous user
+                            await supabase
+                                .from('users')
+                                .delete()
+                                .eq('id', oldUser.id);
+                        }
+
+                        // Finally, link Telegram to the current active user
                         const { error: updateError } = await supabase
                             .from('users')
                             .update({ telegram_chat_id: chatId })
                             .eq('id', userUuid);
 
                         if (updateError) {
-                            await bot.sendMessage(chatId, "⚠️ Произошла ошибка при привязке аккаунта.");
+                            await bot.sendMessage(chatId, "⚠️ Произошла ошибка при сохранении Telegram в базу данных.");
                         } else {
-                            await bot.sendMessage(chatId, `✅ Отлично! Ваш Telegram успешно привязан.\n\nТеперь вы будете получать уведомления о любимых турнирах здесь.`);
+                            await bot.sendMessage(chatId, `✅ Отлично! Ваш Telegram успешно привязан.\n\nЗайдите в Личный Кабинет на сайте, чтобы увидеть все перенесенные подписки.`);
                         }
                     }
                 }
                 // Scenario B: Just plain /start
                 else {
-                    await bot.sendMessage(chatId, "Привет! 🏟 Я Sports Notifier Bot.\n\nЗайдите на наш сайт, выберите любимые турниры и нажмите кнопку привязки Telegram.");
+                    await bot.sendMessage(chatId, "Привет! 🏟 Я Sports Notifier Bot.\n\nЗайдите на наш сайт, выберите любимые турниры или откройте Кабинет, а затем нажмите кнопку привязки Telegram.");
                 }
             }
             // 2. Process /ping mapping
